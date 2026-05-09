@@ -19,6 +19,8 @@ export class WindowHelper {
     const initialWidth = Math.min(560, Math.floor(work.width * 0.42))
     const initialHeight = Math.min(820, Math.floor(work.height * 0.86))
 
+    const isMac = process.platform === "darwin"
+
     this.mainWindow = new BrowserWindow({
       width: initialWidth,
       height: initialHeight,
@@ -27,10 +29,12 @@ export class WindowHelper {
       x: work.width - initialWidth - 24,
       y: 24,
       title: "Clauly",
-      backgroundColor: "#0a0a0c",
+      backgroundColor: "#00000000",
+      transparent: true,
+      hasShadow: false,
       show: false,
-      frame: process.platform !== "darwin",
-      titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
+      frame: !isMac,
+      titleBarStyle: isMac ? "hiddenInset" : "default",
       trafficLightPosition: { x: 14, y: 14 },
       alwaysOnTop: this.alwaysOnTop,
       resizable: true,

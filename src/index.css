@@ -12,7 +12,7 @@ html, body, #root {
 }
 
 body {
-  background: #0a0a0c;
+  background: rgba(10, 10, 12, 0.5);
   color: #e8e8ee;
   font-family: "Inter", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
