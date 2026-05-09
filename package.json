@@ -1,0 +1,110 @@
+{
+  "name": "clauly",
+  "version": "0.1.0",
+  "description": "Live contract-review overlay: captions all parties speaking, then on-button-click runs Claude redline analysis grounded in the contract you uploaded.",
+  "main": "./dist-electron/main.js",
+  "private": true,
+  "scripts": {
+    "clean": "rimraf dist dist-electron",
+    "dev": "vite",
+    "build": "npm run clean && tsc -p tsconfig.json && vite build && tsc -p electron/tsconfig.json",
+    "preview": "vite preview",
+    "electron:compile": "tsc -p electron/tsconfig.json",
+    "electron:dev": "npm run electron:compile && cross-env NODE_ENV=development electron .",
+    "app:dev": "concurrently -k \"npm run dev -- --port 5180\" \"wait-on http://localhost:5180 && npm run electron:dev\"",
+    "app:build": "npm run build && electron-builder",
+    "start": "npm run app:dev",
+    "dist": "npm run app:build",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "dist:win": "npm run build && electron-builder --win"
+  },
+  "build": {
+    "appId": "com.clauly.app",
+    "productName": "Clauly",
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release",
+      "buildResources": "assets"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "hardenedRuntime": true,
+      "entitlements": "assets/entitlements.mac.plist",
+      "entitlementsInherit": "assets/entitlements.mac.plist",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Clauly listens to your meeting audio to live-caption it for contract review.",
+        "NSScreenCaptureUsageDescription": "Clauly captures audio from a shared tab/window so it can caption all meeting participants.",
+        "NSCameraUsageDescription": "Not used. Required by Electron when getUserMedia is referenced."
+      }
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Office"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/uuid": "^9.0.8",
+    "@vitejs/plugin-react": "^4.3.3",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "postcss": "^8.4.49",
+    "rimraf": "^6.0.1",
+    "tailwindcss": "^3.4.15",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "wait-on": "^8.0.1"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "@radix-ui/react-toast": "^1.2.2",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "dotenv": "^16.4.5",
+    "lucide-react": "^0.460.0",
+    "mammoth": "^1.8.0",
+    "nodejs-whisper": "^0.3.0",
+    "openai": "^4.73.0",
+    "pdf-parse": "^1.1.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^2.5.4",
+    "uuid": "^11.0.3"
+  }
+}
