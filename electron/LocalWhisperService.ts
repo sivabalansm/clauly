@@ -2,6 +2,7 @@ import path from "node:path"
 import fs from "node:fs/promises"
 import { existsSync } from "node:fs"
 import os from "node:os"
+import { execSync } from "node:child_process"
 import { app } from "electron"
 
 export interface LocalTranscribeResult {
@@ -44,6 +45,10 @@ export class LocalWhisperService {
     if (this.ready) return this.ready
     this.ready = (async () => {
       await fs.mkdir(this.modelDir, { recursive: true })
+      // Workaround: nodejs-whisper -> shelljs reads process.execPath, which
+      // is the Electron binary inside Electron. Pin it to the real node.
+      const shelljs = (await import("shelljs")).default
+      shelljs.config.execPath = resolveNodeBinaryPath()
       this.nodewhisperImport = import("nodejs-whisper")
       await this.nodewhisperImport
     })()
@@ -122,6 +127,40 @@ export class LocalWhisperService {
       return { ok: false, error: err instanceof Error ? err.message : String(err) }
     }
   }
+}
+
+let cachedNodeBinaryPath: string | null = null
+
+function resolveNodeBinaryPath(): string {
+  if (cachedNodeBinaryPath) return cachedNodeBinaryPath
+  if (process.env.NODE_BINARY_PATH && existsSync(process.env.NODE_BINARY_PATH)) {
+    cachedNodeBinaryPath = process.env.NODE_BINARY_PATH
+    return cachedNodeBinaryPath
+  }
+  try {
+    const out = execSync(process.platform === "win32" ? "where node" : "command -v node", {
+      encoding: "utf8"
+    })
+      .split(/\r?\n/)[0]
+      .trim()
+    if (out && existsSync(out)) {
+      cachedNodeBinaryPath = out
+      return out
+    }
+  } catch {}
+  const fallbacks =
+    process.platform === "win32"
+      ? ["C:\\Program Files\\nodejs\\node.exe"]
+      : ["/opt/homebrew/bin/node", "/usr/local/bin/node", "/usr/bin/node"]
+  for (const candidate of fallbacks) {
+    if (existsSync(candidate)) {
+      cachedNodeBinaryPath = candidate
+      return candidate
+    }
+  }
+  throw new Error(
+    "Unable to locate a `node` binary for nodejs-whisper. Install Node.js or set NODE_BINARY_PATH."
+  )
 }
 
 function mimeTypeToExtension(mimeType: string): string {
