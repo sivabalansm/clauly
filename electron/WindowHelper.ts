@@ -16,7 +16,7 @@ export class WindowHelper {
 
     const primary = screen.getPrimaryDisplay()
     const work = primary.workAreaSize
-    const initialWidth = Math.min(560, Math.floor(work.width * 0.42))
+    const initialWidth = Math.min(880, Math.floor(work.width * 0.6))
     const initialHeight = Math.min(820, Math.floor(work.height * 0.86))
 
     const isMac = process.platform === "darwin"
@@ -24,7 +24,7 @@ export class WindowHelper {
     this.mainWindow = new BrowserWindow({
       width: initialWidth,
       height: initialHeight,
-      minWidth: 420,
+      minWidth: 720,
       minHeight: 520,
       x: work.width - initialWidth - 24,
       y: 24,

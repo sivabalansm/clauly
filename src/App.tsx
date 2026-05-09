@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { v4 as uuid } from "uuid"
-import { Pin, PinOff, Trash2, RotateCcw } from "lucide-react"
+import { Pin, PinOff, Trash2, RotateCcw, FileText } from "lucide-react"
 import { Onboarding } from "./components/Onboarding"
 import { CaptureControls } from "./components/CaptureControls"
 import { TranscriptView } from "./components/TranscriptView"
@@ -150,6 +150,15 @@ export default function App() {
     setAotPinned(next)
   }, [])
 
+  const handleOpenInWord = useCallback(async () => {
+    if (!contractInfo?.wordDocPath) return
+    try {
+      await window.clauly.openContractInWord()
+    } catch (err) {
+      setStatusMsg(err instanceof Error ? err.message : String(err))
+    }
+  }, [contractInfo])
+
   if (!contractInfo) {
     return (
       <Onboarding
@@ -180,6 +189,17 @@ export default function App() {
           </span>
         </div>
         <div className="flex items-center gap-1 no-drag">
+          {contractInfo.wordDocPath && (
+            <button
+              type="button"
+              onClick={handleOpenInWord}
+              title="Open the contract in Word so the Redliner add-in can apply tracked changes from each analysis"
+              className="flex items-center gap-1 px-2 py-1 rounded text-[11px] text-ink-200 hover:text-ink-100 hover:bg-ink-700 border border-ink-600 transition-colors"
+            >
+              <FileText className="w-3 h-3" />
+              <span>Open in Word</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={togglePin}
@@ -199,7 +219,7 @@ export default function App() {
         </div>
       </header>
 
-      <div className="flex-1 min-h-0 overflow-auto scroll-thin px-4 py-3 space-y-3">
+      <div className="flex-1 min-h-0 flex flex-col px-4 py-3 gap-3">
         <CaptureControls
           mode={mode}
           setMode={setMode}
@@ -233,14 +253,19 @@ export default function App() {
           newSegments={newSegments}
         />
 
-        <AnalysisPanel result={analysis} isLoading={analysisLoading} error={analysisError} />
-
-        <TranscriptView
-          segments={segments}
-          pendingChunks={pendingChunks}
-          lastAnalyzedAt={analysis?.generated_at ?? null}
-          onClear={handleClearTranscript}
-        />
+        <div className="flex-1 min-h-0 flex flex-row gap-3">
+          <div className="flex-1 min-w-0 flex flex-col">
+            <TranscriptView
+              segments={segments}
+              pendingChunks={pendingChunks}
+              lastAnalyzedAt={analysis?.generated_at ?? null}
+              onClear={handleClearTranscript}
+            />
+          </div>
+          <div className="flex-1 min-w-0 flex flex-col">
+            <AnalysisPanel result={analysis} isLoading={analysisLoading} error={analysisError} />
+          </div>
+        </div>
       </div>
 
       <footer className="px-4 py-1.5 border-t border-ink-700 flex items-center justify-between text-[10px] text-ink-300">
