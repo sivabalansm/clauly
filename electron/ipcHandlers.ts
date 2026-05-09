@@ -78,8 +78,24 @@ export function initializeIpcHandlers(ctx: AppContext): void {
       throw new Error("No contract loaded. Upload a contract before analyzing.")
     }
     const result = await ctx.analysis.analyze(contract, transcript)
+    const pushed = ctx.redlineHttp.broadcastAnalysis(result)
+    if (pushed.proposals > 0 || pushed.activeClause) {
+      console.log(
+        `[analyze:now] pushed ${pushed.proposals} proposal(s) to ${ctx.redlineHttp.listenerCount()} subscriber(s)`
+      )
+    } else if (result.redlines.length > 0) {
+      console.log(
+        `[analyze:now] ${result.redlines.length} redline(s) generated but no SSE subscribers attached to https://127.0.0.1:8765/redlines/stream`
+      )
+    }
     return result
   })
+
+  ipcMain.handle("redline:bridge-status", () => ({
+    listening: true,
+    listeners: ctx.redlineHttp.listenerCount(),
+    queued: ctx.redlineHttp.queueSize()
+  }))
 
   ipcMain.handle("window:toggle-aot", () => ctx.windowHelper.toggleAlwaysOnTop())
   ipcMain.handle("window:is-aot", () => ctx.windowHelper.isAlwaysOnTop())

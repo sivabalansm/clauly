@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Button,
   Badge,
@@ -334,7 +334,11 @@ const useStyles = makeStyles({
   },
 });
 
-function diffToRender(original: string, proposed: string): React.ReactNode {
+function diffToRender(
+  original: string,
+  proposed: string,
+  styles: ReturnType<typeof useStyles>
+): React.ReactNode {
   const origWords = original.split(/(\s+)/);
   const newWords = proposed.split(/(\s+)/);
   const origSet = new Set(origWords.map((w) => w.toLowerCase()));
@@ -343,7 +347,6 @@ function diffToRender(original: string, proposed: string): React.ReactNode {
   const removed = origWords.filter((w) => w.trim() && !newSet.has(w.toLowerCase()));
   const added = newWords.filter((w) => w.trim() && !origSet.has(w.toLowerCase()));
 
-  const styles = useStyles();
   return (
     <>
       <span className={styles.diffStrike}>{removed.join(" ")}</span>{" "}
@@ -387,6 +390,23 @@ function timeFmt(d: Date): string {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function renderBridgeStatus(
+  status: "connecting" | "live" | "offline",
+  styles: ReturnType<typeof useStyles>
+): React.ReactNode {
+  const cfg = {
+    connecting: { color: "#c08a00", label: "Connecting…" },
+    live: { color: "#1d8348", label: "Live" },
+    offline: { color: "#a02020", label: "Bridge offline" }
+  }[status];
+  return (
+    <span className={styles.statusRow} title={`Clauly bridge https://127.0.0.1:8765 — ${cfg.label}`}>
+      <CircleFilled className={styles.statusDot} style={{ color: cfg.color }} />
+      {cfg.label}
+    </span>
+  );
+}
+
 interface ProductionPaneProps {
   onSwitchToDevTools?: () => void;
 }
@@ -406,6 +426,79 @@ export default function ProductionPane({ onSwitchToDevTools }: ProductionPanePro
   const [showQueue, setShowQueue] = useState(true);
   const [showResolved, setShowResolved] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
+  const [bridgeStatus, setBridgeStatus] = useState<"connecting" | "live" | "offline">("connecting");
+  const seenProposalIds = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const overrideUrl =
+      typeof window !== "undefined"
+        ? (window as { __CLAULY_BRIDGE_URL__?: string }).__CLAULY_BRIDGE_URL__
+        : undefined;
+    const baseUrl = overrideUrl || "https://127.0.0.1:8765";
+    const streamUrl = `${baseUrl}/redlines/stream`;
+    let source: EventSource | null = null;
+    let cancelled = false;
+
+    const open = () => {
+      if (cancelled) return;
+      setBridgeStatus("connecting");
+      try {
+        source = new EventSource(streamUrl);
+      } catch {
+        setBridgeStatus("offline");
+        return;
+      }
+      source.onopen = () => setBridgeStatus("live");
+      source.onerror = () => setBridgeStatus("offline");
+      source.addEventListener("hello", () => setBridgeStatus("live"));
+      source.addEventListener("proposal", (ev: MessageEvent) => {
+        try {
+          const proposal = JSON.parse(ev.data) as Proposal;
+          if (!proposal?.id || seenProposalIds.current.has(proposal.id)) return;
+          seenProposalIds.current.add(proposal.id);
+          setProposals((prev) => [...prev, proposal]);
+        } catch {}
+      });
+      source.addEventListener("active_clause", (ev: MessageEvent) => {
+        try {
+          const data = JSON.parse(ev.data) as { clause_id?: string };
+          if (data?.clause_id) setActiveClauseId(data.clause_id);
+        } catch {}
+      });
+      source.addEventListener("caption", (ev: MessageEvent) => {
+        try {
+          const data = JSON.parse(ev.data) as { text?: string };
+          if (data?.text) setActiveCaption(String(data.text).slice(0, 280));
+        } catch {}
+      });
+      source.addEventListener("cleared", () => {
+        seenProposalIds.current.clear();
+        setProposals([]);
+        setResolvedIds(new Set());
+        setActiveCaption(null);
+      });
+    };
+
+    open();
+
+    return () => {
+      cancelled = true;
+      if (source) source.close();
+    };
+  }, []);
+
+  const ackProposal = (id: string, kind: "applied" | "rejected") => {
+    const overrideUrl =
+      typeof window !== "undefined"
+        ? (window as { __CLAULY_BRIDGE_URL__?: string }).__CLAULY_BRIDGE_URL__
+        : undefined;
+    const baseUrl = overrideUrl || "https://127.0.0.1:8765";
+    fetch(`${baseUrl}/redlines/${encodeURIComponent(id)}/${kind}`, {
+      method: "POST",
+      mode: "cors",
+      credentials: "omit"
+    }).catch(() => undefined);
+  };
 
   const pending = proposals.filter((p) => !resolvedIds.has(p.id));
   const hero =
@@ -470,6 +563,7 @@ export default function ProductionPane({ onSwitchToDevTools }: ProductionPanePro
         return;
       }
       setResolvedIds((s) => new Set(s).add(proposal.id));
+      ackProposal(proposal.id, "applied");
       log({
         type: "accept",
         label: `Accepted ${clauseTypeLabel(proposal.clause_type)} redline`,
@@ -486,6 +580,7 @@ export default function ProductionPane({ onSwitchToDevTools }: ProductionPanePro
   const handleReject = async (proposal: Proposal) => {
     setBusyId(proposal.id);
     setResolvedIds((s) => new Set(s).add(proposal.id));
+    ackProposal(proposal.id, "rejected");
     log({
       type: "reject",
       label: `Rejected ${clauseTypeLabel(proposal.clause_type)} proposal`,
@@ -537,15 +632,14 @@ export default function ProductionPane({ onSwitchToDevTools }: ProductionPanePro
     }
   };
 
+  const bridgeIndicator = renderBridgeStatus(bridgeStatus, styles);
+
   if (proposals.length === 0) {
     return (
       <div className={styles.root}>
         <div className={styles.header}>
           <span className={styles.headerTitle}>Redliner</span>
-          <span className={styles.statusRow}>
-            <CircleFilled className={styles.statusDot} style={{ color: "#9aa0a6" }} />
-            Idle
-          </span>
+          {bridgeIndicator}
         </div>
         <Divider />
         <div className={styles.emptyState}>
@@ -579,10 +673,7 @@ export default function ProductionPane({ onSwitchToDevTools }: ProductionPanePro
     <div className={styles.root}>
       <div className={styles.header}>
         <span className={styles.headerTitle}>Redliner</span>
-        <span className={styles.statusRow}>
-          <CircleFilled className={styles.statusDot} style={{ color: "#1d8348" }} />
-          Live
-        </span>
+        {bridgeIndicator}
       </div>
 
       <div className={styles.metricsBar}>
@@ -628,7 +719,7 @@ export default function ProductionPane({ onSwitchToDevTools }: ProductionPanePro
           </div>
 
           <div className={styles.diffBlock}>
-            {diffToRender(hero.original_text, hero.proposed_text)}
+            {diffToRender(hero.original_text, hero.proposed_text, styles)}
           </div>
 
           <button

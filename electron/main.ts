@@ -7,6 +7,7 @@ import { ContractStore } from "./ContractStore"
 import { TranscriptionService } from "./TranscriptionService"
 import { LocalWhisperService } from "./LocalWhisperService"
 import { AnalysisService } from "./AnalysisService"
+import { RedlineHttpServer } from "./RedlineHttpServer"
 import { registerGlobalShortcuts, unregisterAllShortcuts } from "./shortcuts"
 
 dotenv.config({ path: path.join(app.getAppPath(), ".env") })
@@ -20,6 +21,7 @@ export class AppContext {
   public readonly transcription: TranscriptionService
   public readonly localWhisper: LocalWhisperService
   public readonly analysis: AnalysisService
+  public readonly redlineHttp: RedlineHttpServer
 
   public selectedAudioSourceId: string | null = null
 
@@ -29,6 +31,7 @@ export class AppContext {
     this.transcription = new TranscriptionService()
     this.localWhisper = new LocalWhisperService()
     this.analysis = new AnalysisService()
+    this.redlineHttp = new RedlineHttpServer()
   }
 
   public static getInstance(): AppContext {
@@ -74,6 +77,7 @@ async function bootstrap() {
 
   await app.whenReady()
   configureDisplayMediaHandler(ctx)
+  ctx.redlineHttp.start()
   ctx.windowHelper.createWindow()
   registerGlobalShortcuts(ctx)
 
@@ -87,6 +91,7 @@ async function bootstrap() {
 
   app.on("will-quit", () => {
     unregisterAllShortcuts()
+    ctx.redlineHttp.stop()
   })
 }
 
