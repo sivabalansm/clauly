@@ -3,6 +3,7 @@ export interface ContractInfo {
   charCount: number
   loadedAt: number
   glossarySize: number
+  wordDocPath: string | null
 }
 
 export interface TranscribeResult {

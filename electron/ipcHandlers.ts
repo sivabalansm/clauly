@@ -1,4 +1,5 @@
-import { ipcMain, desktopCapturer } from "electron"
+import { ipcMain, desktopCapturer, shell } from "electron"
+import fs from "node:fs/promises"
 import type { AppContext } from "./main"
 
 export function initializeIpcHandlers(ctx: AppContext): void {
@@ -28,6 +29,21 @@ export function initializeIpcHandlers(ctx: AppContext): void {
   ipcMain.handle("contract:clear", () => {
     ctx.contractStore.clear()
     return { ok: true }
+  })
+
+  ipcMain.handle("contract:open-in-word", async () => {
+    const record = ctx.contractStore.get()
+    if (!record?.wordDocPath) {
+      throw new Error("No contract loaded — upload a contract first.")
+    }
+    try {
+      await fs.access(record.wordDocPath)
+    } catch {
+      throw new Error(`Generated DOCX is missing at ${record.wordDocPath}. Re-upload the contract.`)
+    }
+    const failure = await shell.openPath(record.wordDocPath)
+    if (failure) throw new Error(failure)
+    return { ok: true, path: record.wordDocPath }
   })
 
   ipcMain.handle(
@@ -119,11 +135,18 @@ export function initializeIpcHandlers(ctx: AppContext): void {
   })
 }
 
-function serializeContract(record: { filename: string; charCount: number; loadedAt: number; glossary: string[] }) {
+function serializeContract(record: {
+  filename: string
+  charCount: number
+  loadedAt: number
+  glossary: string[]
+  wordDocPath: string | null
+}) {
   return {
     filename: record.filename,
     charCount: record.charCount,
     loadedAt: record.loadedAt,
-    glossarySize: record.glossary.length
+    glossarySize: record.glossary.length,
+    wordDocPath: record.wordDocPath
   }
 }

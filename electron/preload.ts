@@ -9,6 +9,7 @@ const api = {
     ipcRenderer.invoke("contract:load-buffer", { buffer: Buffer.from(buffer), filename }),
   getContractInfo: () => ipcRenderer.invoke("contract:get-info"),
   clearContract: () => ipcRenderer.invoke("contract:clear"),
+  openContractInWord: () => ipcRenderer.invoke("contract:open-in-word"),
 
   transcribeChunk: (audio: ArrayBuffer, mimeType: string, primingText: string) =>
     ipcRenderer.invoke("transcribe:chunk", {

@@ -14,6 +14,7 @@ declare global {
       loadContractFromBuffer: (buffer: ArrayBuffer, filename: string) => Promise<{ ok: boolean; info: ContractInfo }>
       getContractInfo: () => Promise<ContractInfo | null>
       clearContract: () => Promise<{ ok: boolean }>
+      openContractInWord: () => Promise<{ ok: boolean; path: string }>
 
       transcribeChunk: (audio: ArrayBuffer, mimeType: string, primingText: string) => Promise<TranscribeResult>
       transcribeChunkLocal: (audio: ArrayBuffer, mimeType: string) => Promise<TranscribeResult>
